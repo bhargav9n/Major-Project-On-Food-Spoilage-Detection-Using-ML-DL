@@ -1,0 +1,47 @@
+# main.py
+# -----------------------------------
+# Main file that integrates all modules
+# -----------------------------------
+
+import threading
+import time
+
+from temperature_sensor import read_temp
+from gas_ph_sensor import get_ph_status, get_mq_status
+from lcd_display import display_message
+from yolo_camera import start_camera
+
+STOP = False
+
+def sensor_thread():
+    global STOP
+
+    while not STOP:
+        temp = read_temp()
+        if temp:
+            display_message("FOOD STATUS", f"Temp: {temp:.1f}C")
+        else:
+            display_message("FOOD STATUS", "Temp Error")
+
+        time.sleep(2)
+
+        ph_status = get_ph_status()
+        display_message("FOOD STATUS", "pH: " + ph_status)
+
+        time.sleep(2)
+
+        mq_status = get_mq_status()
+        display_message("FOOD STATUS", "MQ: " + mq_status)
+
+        time.sleep(2)
+
+if __name__ == "__main__":
+    try:
+        t = threading.Thread(target=sensor_thread)
+        t.start()
+
+        start_camera()
+
+    except KeyboardInterrupt:
+        STOP = True
+        print("System Stopped")
