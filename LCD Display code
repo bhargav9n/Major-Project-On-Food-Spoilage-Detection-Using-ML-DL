@@ -1,0 +1,18 @@
+# lcd_display.py
+# -----------------------------------
+# Handles 16x2 LCD via I2C
+# -----------------------------------
+
+from RPLCD.i2c import CharLCD
+import threading
+
+LCD = CharLCD('PCF8574', 0x27)
+LCD_LOCK = threading.Lock()
+
+def display_message(line1, line2):
+    """Display two lines on LCD"""
+    with LCD_LOCK:
+        LCD.clear()
+        LCD.write_string(line1[:16])
+        LCD.cursor_pos = (1, 0)
+        LCD.write_string(line2[:16])
