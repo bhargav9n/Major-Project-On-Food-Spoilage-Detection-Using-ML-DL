@@ -1,0 +1,58 @@
+# yolo_camera.py
+# -----------------------------------
+# Handles Camera and YOLOv5 Detection
+# -----------------------------------
+
+import cv2
+import torch
+import numpy as np
+from picamera2 import Picamera2
+from models.common import DetectMultiBackend
+from utils.general import non_max_suppression, scale_boxes
+from utils.torch_utils import select_device
+from utils.augmentations import letterbox
+import time
+
+device = select_device('cpu')
+model = DetectMultiBackend('best.pt', device=device)
+model.eval()
+
+def start_camera():
+    picam2 = Picamera2()
+    config = picam2.create_preview_configuration(main={"size": (640, 480)})
+    picam2.configure(config)
+    picam2.start()
+    time.sleep(1)
+
+    while True:
+        frame = picam2.capture_array()
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        img = letterbox(frame, new_shape=(640, 640))[0]
+        img = img[:, :, ::-1].transpose(2, 0, 1)
+        img = torch.from_numpy(img).float() / 255.0
+        img = img.unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            pred = model(img)
+
+        pred = non_max_suppression(pred, 0.25, 0.45)
+
+        for det in pred:
+            if len(det):
+                det[:, :4] = scale_boxes(img.shape[2:], det[:, :4], frame.shape).round()
+                for *xyxy, conf, cls in det:
+                    x1, y1, x2, y2 = map(int, xyxy)
+                    label = f"{model.names[int(cls)]} {conf:.2f}"
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, label, (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                                (0, 255, 0), 2)
+
+        cv2.imshow("YOLO Food Detection", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    picam2.stop()
+    cv2.destroyAllWindows()
